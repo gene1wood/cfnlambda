@@ -19,6 +19,7 @@ import json
 from functools import wraps
 import boto3
 from botocore.vendored import requests
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +222,7 @@ def handler_decorator(delete_logs=True,
                            (handler.__name__, e.message))
                 result = {'result': message}
                 logger.error(message)
+                logger.debug(traceback.format_exc())
 
             if event['RequestType'] == RequestType.DELETE:
                 if status == Status.FAILED and hide_stack_delete_failure:
