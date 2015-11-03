@@ -16,7 +16,7 @@ your AWS Lambda function.
 
     from cfnlambda import handler_decorator
 
-    @handler_decorator()
+    @handler_decorator
     def lambda_handler(event, context):
         sum = (float(event['ResourceProperties']['key1']) + 
                float(event['ResourceProperties']['key2']))
@@ -104,7 +104,7 @@ First, this Lambda code must be zipped and uploaded to an s3 bucket.
     import logging
     logging.getLogger().setLevel(logging.INFO)
 
-    @handler_decorator()
+    @handler_decorator
     def lambda_handler(event, context):
         sum = (float(event['ResourceProperties']['key1']) + 
                float(event['ResourceProperties']['key2']))
@@ -123,7 +123,7 @@ Here are a set of commands to create and upload the AWS Lambda function
     import logging
     logging.getLogger().setLevel(logging.INFO)
 
-    @handler_decorator()
+    @handler_decorator
     def lambda_handler(event, context):
         sum = (float(event['ResourceProperties']['key1']) + 
                float(event['ResourceProperties']['key2']))
@@ -300,22 +300,3 @@ the search bar. You should get back a single user's profile which lists out a
 collection of accounts that the user has proved control of. A strong indicator
 that the person is the author is if you can find `cfnlambda` in their github
 account.
-
-FAQ
----
-
-Q: What causes the error `inner_decorator() takes exactly 1 argument (2 given): TypeError Traceback
-(most recent call last): File "/var/runtime/awslambda/bootstrap.py", line
-177, in handle_event_request result = request_handler(json_input, context)
-TypeError: inner_decorator() takes exactly 1 argument (2 given)`
-
-A: You likely used `@handler_decorator` to decorate your function instead of
-`@handler_decorator()`. Because `handler_decorator` accepts arguments, you need
-to use it with parenthesis. 
-
-.. _AWS CLI: http://docs.aws.amazon.com/cli/latest/reference/s3/index.html
-.. _install and configure AWS CLI: http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-set-up.html
-.. _returning: https://docs.python.org/2/reference/simple_stmts.html#return
-.. _cfn-response: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-cfnresponsemodule
-.. _downloads section on PyPI: https://pypi.python.org/pypi/cfnlambda#downloads
-.. _keybase: https://keybase.io/

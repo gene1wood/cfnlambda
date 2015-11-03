@@ -170,13 +170,18 @@ def cfn_response(event,
         logger.debug(traceback.format_exc())
 
 
-def handler_decorator(delete_logs=True,
-                      hide_stack_delete_failure=True):
+def handler_decorator(*args, **kwargs):
     """Decorate an AWS Lambda function to add exception handling, emit
     CloudFormation responses and log.
 
     Usage:
-        >>> @handler_decorator()
+        >>> @handler_decorator
+        ... def lambda_handler(event, context):
+        ...     sum = (float(event['ResourceProperties']['key1']) +
+        ...            float(event['ResourceProperties']['key2']))
+        ...     return {'sum': sum}
+
+        >>> @handler_decorator(delete_logs=False)
         ... def lambda_handler(event, context):
         ...     sum = (float(event['ResourceProperties']['key1']) +
         ...            float(event['ResourceProperties']['key2']))
@@ -203,6 +208,11 @@ def handler_decorator(delete_logs=True,
     Raises:
         No exceptions
     """
+    if args:
+        return handler_decorator()(args[0])
+
+    delete_logs = kwargs.get('delete_logs', True)
+    hide_stack_delete_failure = kwargs.get('hide_stack_delete_failure', True)
 
     def inner_decorator(handler):
         """Bind handler_decorator to handler_wrapper in order to enable passing
