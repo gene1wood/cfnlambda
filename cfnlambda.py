@@ -30,8 +30,36 @@ class Status:
 
     http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html
     """
-    SUCCESS = 'SUCCESS'
-    FAILED = 'FAILED'
+
+    def __init__(self, value, reason=None):
+        self.value = value
+        self.reason = reason
+
+    def __repr__(self):
+        r = '{}'.format(self.value)
+        if self.reason:
+            r += '({})'.format(self.reason)
+        return r
+
+    def isSuccess(self):
+        return self.value == 'SUCCESS' or (self.isFinished() and self.value.value == 'SUCCESS')
+
+    def isFailed(self):
+        return self.value == 'FAILED' or (self.isFinished() and self.value.value == 'FAILED')
+
+    def isFinished(self):
+        return isinstance(self.value, Status)
+
+    @classmethod
+    def getFailed(cls, reason):
+        return cls('FAILED', reason)
+
+    @classmethod
+    def getFinished(cls, status):
+        return cls(status)
+
+Status.SUCCESS = Status('SUCCESS')
+Status.FAILED = Status('FAILED')
 
 
 class RequestType:
@@ -85,7 +113,9 @@ def cfn_response(event,
             information.[4]
         response_status: A status of SUCCESS or FAILED to send back to
             CloudFormation.[2] Use the Status.SUCCESS and Status.FAILED
-            constants.
+            constants, or Status.getFailed() to provide a reason for the
+            failure. If the status was wrapped using Status.getFinished(),
+            the call is a noop and returns None.
         response_data: A dictionary of key value pairs to pass back to
             CloudFormation which can be accessed with the Fn::GetAtt function
             on the CloudFormation custom resource.[5]
@@ -105,12 +135,16 @@ def cfn_response(event,
     [4]: http://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
     [5]: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html#crpg-ref-responses-data
     """
+    if isinstance(response_status, Status) and response_status.isFinished():
+        return
+
     if physical_resource_id is None:
         physical_resource_id = context.log_stream_name
+    default_reason = ("See the details in CloudWatch Log Stream: %s" %
+                   context.log_stream_name)
     body = {
-        "Status": response_status,
-        "Reason": ("See the details in CloudWatch Log Stream: %s" %
-                   context.log_stream_name),
+        "Status": response_status.value if isinstance(response_status, Status) else response_status,
+        "Reason": response_status.reason or default_reason if isinstance(response_status, Status) else default_reason,
         "PhysicalResourceId": physical_resource_id,
         "StackId": event['StackId'],
         "RequestId": event['RequestId'],
@@ -202,7 +236,13 @@ def handler_decorator(delete_logs=True,
                     information.[2]
 
             Returns:
-                None
+                If the handler returns a Status object, the wrapper returns an
+                empty dict.
+                
+                If the handler returns two values, the first being a Status object,
+                the wrapper returns the second value.
+                
+                Otherwise, the wrapper returns the value returned by the handler.
 
             Returns to CloudFormation:
                 TODO
@@ -219,17 +259,23 @@ def handler_decorator(delete_logs=True,
             result = None
             try:
                 result = handler(event, context)
-                status = Status.SUCCESS if result else Status.FAILED
-                if not status:
+                if isinstance(result, Status):
+                    status = result
+                    result = None
+                elif isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], Status):
+                    status, result = result
+                else:
+                    status = Status.SUCCESS if result else Status.FAILED
+                if result is False:
                     message = "Function %s returned False." % handler.__name__
                     logger.error(message)
+                    status = Status.FAILED
                     result = {'result': message}
             except Exception as e:
-                status = Status.FAILED
-                message = ('Function %s failed due to exception "%s".' %
+                status = Status.getFailed('Function %s failed due to exception "%s".' %
                            (handler.__name__, e.message))
-                result = {'result': message}
-                logger.error(message)
+                result = {}
+                logger.error(status.reason)
                 logger.debug(traceback.format_exc())
 
             if not result:
@@ -246,16 +292,18 @@ def handler_decorator(delete_logs=True,
                     result['result'] = result.get('result', '') + ' %s' % message
                     status = Status.SUCCESS
 
-                if status == Status.SUCCESS and delete_logs:
+                if status.isSuccess() and delete_logs:
                     logging.disable(logging.CRITICAL)
                     logs_client = boto3.client('logs')
                     logs_client.delete_log_group(
                         logGroupName=context.log_group_name)
-            cfn_response(event,
-                         context,
-                         status,
-                         (result if type(result) is dict else
-                          {'result': result}))
+            result = (dict(result) if isinstance(result, dict) else {'result': result})
+            if not status.isFinished():
+                cfn_response(event,
+                             context,
+                             status,
+                             result,
+                             )
             return result
         return handler_wrapper
     return inner_decorator
