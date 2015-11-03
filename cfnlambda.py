@@ -20,6 +20,7 @@ from functools import wraps
 import boto3
 from botocore.vendored import requests
 import traceback
+import httplib
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ def cfn_response(event,
             CloudWatch Logs log stream is used.
 
     Returns:
-        None
+        requests.Response object
 
     Raises:
         No exceptions raised
@@ -121,12 +122,18 @@ def cfn_response(event,
     try:
         response = requests.put(event['ResponseURL'],
                                 data=response_body)
-        logger.debug("Status code: %s" % response.status_code)
+        body_text = ""
+        if response.status_code // 100 != 2:
+            body_text = "\n" + response.text
+        logger.debug("Status code: %s %s%s" % (response.status_code, httplib.responses[response.status_code], body_text))
+            
         # logger.debug("Status message: %s" % response.status_message)
         # how do we get the status message?
+        return response
     except Exception as e:
         logger.error("send(..) failed executing https.request(..): %s" %
                      e.message)
+        logger.debug(traceback.format_exc())
 
 
 def handler_decorator(delete_logs=True,
@@ -209,6 +216,7 @@ def handler_decorator(delete_logs=True,
             logger.info('REQUEST RECEIVED: %s' % json.dumps(event))
             logger.info('LambdaContext: %s' %
                         json.dumps(vars(context), cls=PythonObjectEncoder))
+            result = None
             try:
                 result = handler(event, context)
                 status = Status.SUCCESS if result else Status.FAILED
@@ -224,6 +232,9 @@ def handler_decorator(delete_logs=True,
                 logger.error(message)
                 logger.debug(traceback.format_exc())
 
+            if not result:
+                result = {}
+
             if event['RequestType'] == RequestType.DELETE:
                 if status == Status.FAILED and hide_stack_delete_failure:
                     message = (
@@ -232,7 +243,7 @@ def handler_decorator(delete_logs=True,
                         'despite the fact that the stack status may be '
                         'DELETE_COMPLETE.')
                     logger.error(message)
-                    result['result'] += ' %s' % message
+                    result['result'] = result.get('result', '') + ' %s' % message
                     status = Status.SUCCESS
 
                 if status == Status.SUCCESS and delete_logs:
@@ -245,6 +256,6 @@ def handler_decorator(delete_logs=True,
                          status,
                          (result if type(result) is dict else
                           {'result': result}))
-            return handler(event, context)
+            return result
         return handler_wrapper
     return inner_decorator
