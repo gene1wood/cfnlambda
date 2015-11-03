@@ -305,8 +305,9 @@ def handler_decorator(*args, **kwargs):
                 if status.isSuccess() and delete_logs:
                     logging.disable(logging.CRITICAL)
                     logs_client = boto3.client('logs')
-                    logs_client.delete_log_group(
-                        logGroupName=context.log_group_name)
+                    logs_client.delete_log_stream(
+                        logGroupName=context.log_group_name,
+                        logStreamName=context.log_stream_name)
             result = (dict(result) if isinstance(result, dict) else {'result': result})
             if not status.isFinished():
                 cfn_response(event,
