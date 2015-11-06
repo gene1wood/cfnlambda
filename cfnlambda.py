@@ -31,9 +31,10 @@ class Status:
     http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html
     """
 
-    def __init__(self, value, reason=None):
+    def __init__(self, value, reason=None, put_response=None):
         self.value = value
         self.reason = reason
+        self.put_response = put_response
 
     def __repr__(self):
         r = '{}'.format(self.value)
@@ -55,12 +56,29 @@ class Status:
         return cls('FAILED', reason)
 
     @classmethod
-    def getFinished(cls, status):
-        return cls(status)
+    def getFinished(cls, status, put_response=None):
+        return cls(status, put_response=put_response)
 
 Status.SUCCESS = Status('SUCCESS')
 Status.FAILED = Status('FAILED')
 
+class Result(object):
+    def __init__(self, physical_resource_id, data=None):
+        self.physical_resource_id = physical_resource_id
+        self.data = data
+        self.dict = {}
+        self.status = None
+
+    def success(self):
+        self.status = Status.SUCCESS
+        return self
+
+    def failed(self, reason):
+        self.status = Status.getFailed(reason)
+        return self
+
+    def finish(self, event, context):
+        return Status.getFinished(self.status, put_response=cfn_response(event, context, self.status, physical_resource_id=self.physical_resource_id, response_data=self.data))
 
 class RequestType:
     """CloudFormation custom resource request type constants
