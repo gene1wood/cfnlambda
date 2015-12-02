@@ -54,6 +54,7 @@ class PythonObjectEncoder(json.JSONEncoder):
                              cls=PythonObjectEncoder))
         {"example": "set([1, 2, 3])"}
     """
+
     def default(self, obj):
         if isinstance(obj,
                       (list, dict, str, unicode,
@@ -63,6 +64,23 @@ class PythonObjectEncoder(json.JSONEncoder):
             return obj.__repr__()
         else:
             return json.JSONEncoder.default(self, obj.__repr__())
+
+
+def validate_response_data(response_data):
+    """Turn any response data into a valid CloudFormation custom resource
+    provider Data response field.
+    http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html
+
+    Returns:
+        Dictionary of name value pairs
+    """
+    if type(response_data) is not dict:
+        return {'result': json.dumps(response_data)}
+    else:
+        for key in response_data:
+            if type(response_data[key]) is not str:
+                response_data[key] = json.dumps(response_data[key])
+        return response_data
 
 
 def cfn_response(event,
@@ -105,6 +123,7 @@ def cfn_response(event,
     """
     if physical_resource_id is None:
         physical_resource_id = context.log_stream_name
+    response_data = validate_response_data(response_data)
     body = {
         "Status": response_status,
         "Reason": ("See the details in CloudWatch Log Stream: %s" %
@@ -210,8 +229,8 @@ def handler_decorator(delete_logs=True,
                         json.dumps(vars(context), cls=PythonObjectEncoder))
             try:
                 result = handler(event, context)
-                status = Status.SUCCESS if result else Status.FAILED
-                if not status:
+                status = Status.FAILED if result is False else Status.SUCCESS
+                if status == Status.FAILED:
                     message = "Function %s returned False." % handler.__name__
                     logger.error(message)
                     result = {'result': message}
@@ -230,7 +249,7 @@ def handler_decorator(delete_logs=True,
                         'despite the fact that the stack status may be '
                         'DELETE_COMPLETE.')
                     logger.error(message)
-                    result['result'] += ' %s' % message
+                    result = message
                     status = Status.SUCCESS
 
                 if status == Status.SUCCESS and delete_logs:
@@ -241,8 +260,7 @@ def handler_decorator(delete_logs=True,
             cfn_response(event,
                          context,
                          status,
-                         (result if type(result) is dict else
-                          {'result': result}))
-            return handler(event, context)
+                         result)
+            return result
         return handler_wrapper
     return inner_decorator
