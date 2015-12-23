@@ -1,0 +1,69 @@
+{
+    "Parameters" : {
+      "S3BucketName" : {
+        "Type" : "String",
+        "Default" : "example-s3bucket-us-west-2",
+        "Description" : "Enter the name of the s3 bucket containing the AWS Lambda code zip file."
+      }
+    },
+
+  "Resources" : {
+    "SumInfo": {
+      "Type": "Custom::SumInfo",
+      "Properties": {
+        "ServiceToken": { "Fn::GetAtt" : ["ExecuteSum", "Arn"] },
+        "key1": "1.2",
+        "key2": "5.9"
+      }
+    },
+    "ExecuteSum": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": "example.lambda_handler",
+        "Role": { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
+        "Code": {
+          "S3Bucket": {"Ref": "S3BucketName"},
+          "S3Key": "example.zip"
+        },
+        "Runtime": "python2.7"
+      }
+    },
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+              "Effect": "Allow",
+              "Principal": {"Service": ["lambda.amazonaws.com"]},
+              "Action": ["sts:AssumeRole"]
+          }]
+        },
+        "Policies": [{
+          "PolicyName": "root",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+                "Resource": "arn:aws:logs:*:*:*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["logs:DeleteLogGroup"],
+                "Resource": {"Fn::Join":["", ["arn:aws:logs:", {"Ref":"AWS::Region"},":",{"Ref":"AWS::AccountId"}, ":log-group:/aws/lambda/*"]]}
+              }
+            ]
+          }
+        }]
+      }
+    }
+  },
+  "Outputs" : {
+    "Sum" : {
+      "Description" : "The sum of the two values",
+      "Value" : { "Fn::GetAtt": [ "SumInfo", "sum" ] }
+    }
+  }
+}

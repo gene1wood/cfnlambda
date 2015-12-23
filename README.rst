@@ -18,9 +18,9 @@ your AWS Lambda function.
 
     @handler_decorator()
     def lambda_handler(event, context):
-        sum = (float(event['ResourceProperties']['key1']) + 
-               float(event['ResourceProperties']['key2']))
-        return {'sum': sum}
+        result = (float(event['ResourceProperties']['key1']) + 
+                  float(event['ResourceProperties']['key2']))
+        return {'sum': result}
 
 handler_decorator
 -----------------
@@ -106,9 +106,9 @@ First, this Lambda code must be zipped and uploaded to an s3 bucket.
 
     @handler_decorator()
     def lambda_handler(event, context):
-        sum = (float(event['ResourceProperties']['key1']) + 
-               float(event['ResourceProperties']['key2']))
-        return {'sum': sum}
+        result = (float(event['ResourceProperties']['key1']) + 
+                  float(event['ResourceProperties']['key2']))
+        return {'sum': result}
 
 Here are a set of commands to create and upload the AWS Lambda function
 
@@ -125,9 +125,9 @@ Here are a set of commands to create and upload the AWS Lambda function
 
     @handler_decorator()
     def lambda_handler(event, context):
-        sum = (float(event['ResourceProperties']['key1']) + 
-               float(event['ResourceProperties']['key2']))
-        return {'sum': sum}
+        result = (float(event['ResourceProperties']['key1']) + 
+                  float(event['ResourceProperties']['key2']))
+        return {'sum': result}
     End-of-message
 
     pip install cfnlambda --no-deps -t $dir
