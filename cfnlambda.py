@@ -124,10 +124,14 @@ def cfn_response(event,
     if physical_resource_id is None:
         physical_resource_id = context.log_stream_name
     response_data = validate_response_data(response_data)
+    reason = ("See the details in CloudWatch Log Stream: %s" %
+              context.log_stream_name)
+    if (response_status == Status.FAILED) and 'result' in response_data:
+        reason = "%s %s" % (response_data['result'], reason)
+
     body = {
         "Status": response_status,
-        "Reason": ("See the details in CloudWatch Log Stream: %s" %
-                   context.log_stream_name),
+        "Reason": reason,
         "PhysicalResourceId": physical_resource_id,
         "StackId": event['StackId'],
         "RequestId": event['RequestId'],
