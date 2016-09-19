@@ -77,9 +77,6 @@ def validate_response_data(response_data):
     if type(response_data) is not dict:
         return {'result': json.dumps(response_data)}
     else:
-        for key in response_data:
-            if type(response_data[key]) is not str:
-                response_data[key] = json.dumps(response_data[key])
         return response_data
 
 
@@ -151,8 +148,7 @@ def cfn_response(event,
                      e.message)
 
 
-def handler_decorator(delete_logs=True,
-                      hide_stack_delete_failure=True):
+def handler_decorator(delete_logs=False,hide_stack_delete_failure=False):
     """Decorate an AWS Lambda function to add exception handling, emit
     CloudFormation responses and log.
 
@@ -177,7 +173,6 @@ def handler_decorator(delete_logs=True,
             hide_stack_delete_failure is False, an exception in the AWS Lambda
             function will result in DELETE_FAILED upon an attempt to delete
             the stack.
-
     Returns:
         A decorated function
 
@@ -245,7 +240,17 @@ def handler_decorator(delete_logs=True,
                 result = {'result': message}
                 logger.error(message)
 
+            # Handle RequestType.DELETE
             if event['RequestType'] == RequestType.DELETE:
+                if status == Status.SUCCESS and delete_logs:
+                    logging.disable(logging.CRITICAL)
+                    logs_client = boto3.client('logs')
+                    logs_client.delete_log_group(
+                        logGroupName=context.log_group_name)
+
+                # Hide failure. This should happen after after delete_logs is
+                # resolved in order to make sure delete failure can be
+                # troubleshooted
                 if status == Status.FAILED and hide_stack_delete_failure:
                     message = (
                         'There may be resources created by the AWS '
@@ -256,15 +261,12 @@ def handler_decorator(delete_logs=True,
                     result = message
                     status = Status.SUCCESS
 
-                if status == Status.SUCCESS and delete_logs:
-                    logging.disable(logging.CRITICAL)
-                    logs_client = boto3.client('logs')
-                    logs_client.delete_log_group(
-                        logGroupName=context.log_group_name)
+            # Return response
             cfn_response(event,
                          context,
                          status,
                          result)
+
             return result
         return handler_wrapper
     return inner_decorator

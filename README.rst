@@ -45,11 +45,11 @@ your CloudFormation stack in the `result` attribute.
 
     { "Fn::GetAtt": [ "MyCustomResource", "result" ] }
 
-Unless the `delete_logs` argument is set to False in `handler_decorator`, all
-CloudWatch logs generated while the stack was created, updated and deleted will
-be deleted upon a successful stack deletion. If an exception is thrown during
-stack deletion, the logs will always be retained to facilitate troubleshooting.
-To force retention of logs after a stack is deleted, set `delete_logs` to False.
+If you wish to delete the logs of the evnet you can set the `delete_logs`
+argument to True in `handler_decorator`, upon which all CloudWatch logs generated
+while the stack was created, updated and deleted will be deleted upon a successful
+stack deletion. If an exception is thrown during stack deletion, the logs will always
+be retained to facilitate troubleshooting.
 
 ::
 
@@ -61,25 +61,25 @@ To force retention of logs after a stack is deleted, set `delete_logs` to False.
         mirror_text = event['ResourceProperties']['key1'][::-1]
         return {'MirrorText': mirror_text}
 
-
-Finally, AWS Lambda functions decorated with `handler_decorator` will not
-report a status of FAILED when a stack DELETE is attempted. This will prevent
+Finally, AWS Lambda functions decorated with `handler_decorator` can be configured to
+not report a status of FAILED when a stack DELETE is attempted. This will prevent
 a CloudFormation stack from getting stuck in a DELETE_FAILED state. One side
 effect of this is that if your AWS Lambda function throws an exception while
 trying to process a stack deletion, though the stack will show a status of
 DELETE_COMPLETE, there could still be resources which your AWS Lambda function
-created which have not been deleted. To disable this feature, pass
-`hide_stack_delete_failure=False` as an argument to `handler_decorator`. 
+created which have not been deleted. To enable this feature, pass
+`hide_stack_delete_failure=True` as an argument to `handler_decorator`.
 
 ::
 
     from cfnlambda import handler_decorator
 
-    @handler_decorator(hide_stack_delete_failure=False)
+    @handler_decorator(hide_stack_delete_failure=True)
     def lambda_handler(event, context):
         raise Exception(
-            'This will result in a CloudFormation stack stuck in a
-            DELETE_FAILED state')
+            'This will result in a CloudFormation stack going straight
+            to DELETE_COMPLETE')
+
 
 handler_decorator usage walkthrough
 ###################################
@@ -256,7 +256,9 @@ CloudFormation stack where it could be accessed like this
 
 How to contribute
 -----------------
-Feel free to open issues or fork and submit PRs.
+Feel free to open issues or fork and submit PRs. This is a fork created by @NightKhaos to address some
+bugs and change the functionality to suit his use case. For the upstream please refer to the orginal
+by @gene1wood
 
 * Issue Tracker: https://github.com/gene1wood/cfnlambda/issues
 * Source Code: https://github.com/gene1wood/cfnlambda
@@ -319,3 +321,4 @@ to use it with parenthesis.
 .. _cfn-response: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-cfnresponsemodule
 .. _downloads section on PyPI: https://pypi.python.org/pypi/cfnlambda#downloads
 .. _keybase: https://keybase.io/
+
