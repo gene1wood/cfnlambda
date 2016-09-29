@@ -118,9 +118,12 @@ def cfn_response(event,
     [4]: http://docs.aws.amazon.com/lambda/latest/dg/python-context-object.html
     [5]: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html#crpg-ref-responses-data
     """
-    if physical_resource_id is None:
-        physical_resource_id = context.log_stream_name
     response_data = validate_response_data(response_data)
+    if physical_resource_id is None:
+        if 'PhysicalResourceId' in response_data:
+            physical_resource_id = response_data['PhysicalResourceId']
+        else:
+            physical_resource_id = context.log_stream_name
     reason = ("See the details in CloudWatch Log Stream: %s" %
               context.log_stream_name)
     if (response_status == Status.FAILED) and 'result' in response_data:
