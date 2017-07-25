@@ -19,6 +19,8 @@ import json
 from functools import wraps
 import boto3
 from botocore.vendored import requests
+import traceback
+import httplib
 
 logger = logging.getLogger(__name__)
 
@@ -143,12 +145,14 @@ def cfn_response(event,
     try:
         response = requests.put(event['ResponseURL'],
                                 data=response_body)
-        logger.debug("Status code: %s" % response.status_code)
-        # logger.debug("Status message: %s" % response.status_message)
-        # how do we get the status message?
+        body_text = ""
+        if response.status_code // 100 != 2:
+            body_text = "\n" + response.text
+        logger.debug("Status code: %s %s%s" % (response.status_code, httplib.responses[response.status_code], body_text))
     except Exception as e:
         logger.error("send(..) failed executing https.request(..): %s" %
                      e.message)
+        logger.debug(traceback.format_exc())
 
 
 def handler_decorator(delete_logs=True,
@@ -259,8 +263,9 @@ def handler_decorator(delete_logs=True,
                 if status == Status.SUCCESS and delete_logs:
                     logging.disable(logging.CRITICAL)
                     logs_client = boto3.client('logs')
-                    logs_client.delete_log_group(
-                        logGroupName=context.log_group_name)
+                    logs_client.delete_log_stream(
+                        logGroupName=context.log_group_name,
+                        logStreamName=context.log_stream_name)
             cfn_response(event,
                          context,
                          status,
